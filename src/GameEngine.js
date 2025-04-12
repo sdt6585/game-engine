@@ -175,29 +175,29 @@ class GameEngine {
   }
 
   /**
- * Resets the game state
- * - Clears the grid and recreates blocks
- * - Clears selection and history
- * - Re-renders the grid
- * - Fires 'reset' event
- */
-reset() {
-  if (emit('before: reset').preventDefault === true) {return};
-  
-  // Clear selection
-  // - not clearing history here, allows for undo/redo functionality to reset
-  this.selectedBlocks = [];
-  this.currentBlock = null;
+   * Resets the game state
+   * - Clears the grid and recreates blocks
+   * - Clears selection and history
+   * - Re-renders the grid
+   * - Fires 'reset' event
+   */
+  reset() {
+    if (emit('before: reset').preventDefault === true) {return};
+    
+    // Clear selection
+    // - not clearing history here, allows for undo/redo functionality to reset
+    this.selectedBlocks = [];
+    this.currentBlock = null;
 
-  // Initialize state with new block objects
-  this.state = this.generateState();
-  
-  // Render the grid (attaches elements to block objects)
-  this.renderGrid();
-  
-  // Fire after event
-  this.emit('after:reset');
-}
+    // Initialize state with new block objects
+    this.state = this.generateState();
+    
+    // Render the grid (attaches elements to block objects)
+    this.renderGrid();
+    
+
+    this.emit('after:reset');
+  }
 
   /**
    * Renders the entire grid
@@ -250,70 +250,107 @@ reset() {
     return this.gridEl;
   }
 
-/** Generate State
- * 
- * @returns {Array<Array<Object>>} - The state of the game
- * @private
- */
-generateState() {
-  if (emit('before: generateState').preventDefault === true) {return}
+  /** Generates a complete game state
+   * - Generates a new state with new block objects
+   * @returns {Array<Array<Object>>} - A 2D array of block objects
+   */
+  async generateState() {
+    // Allow event handlers to prevent generation
+    const beforeEvent = await this.emit('before:generateState');
+    if (beforeEvent.preventDefault === true) return;
 
-  let returnValue = Array.from({ length: this.gridSize.rows }, () => 
-    Array.from({ length: this.gridSize.cols }, () => this.generateBlock(row, col)));
+    // Generate a new state with new block objects
+    let newState = Array.from({ length: this.gridSize.rows }, (_, row) => 
+      Array.from({ length: this.gridSize.cols }, (_, col) => 
+        this.generateBlock(row, col)
+      )
+    );
 
-  returnValue = (emit('after: generateState', returnValue)).args;
+    // Allow event handlers to modify the new state
+    const afterEvent = await this.emit('after:generateState', newState);
+    newState = afterEvent.args || newState;
 
-  return returnValue;
-}
-
-/** Genreates a new block
- * Uses the range property to generate a random value incremented by powers of 2
- * Override this method to customize block generation
- * @param {number} row - Row position
- * @param {number} col - Column position
- * @returns {Object} - A new block object
- * @private
- */
-generateBlock(row, col) {
-  if (emit('before: generateBlock', row, col).preventDefault === true) {return}
-
-  // Generate random value within range using the incrementPower
-  let potentialValues = [];
-  for (let i = this.range.min; i <= this.range.max; i *= this.range.incrementPower) {
-    potentialValues.push(i);
+    return newState;
   }
-
-  // Generate an array index from the potential values
-  const valueIndex = Math.floor(Math.random() * potentialValues.length);
-
-  // Get the value from the potential values array
-  const value = potentialValues[valueIndex];
-  
-  let returnValue = {
-    value, 
-    row, 
-    col, 
-    id: `block-${row}-${col}-${Date.now()}`, 
-    el: null
-  };
-
-  returnValue = (emit('after: generateBlock', returnValue)).args;
-
-  return returnValue;
-}
-
 
   /**
-   * Renders a single block
-   * @param {Object} block - Block object to render
-   * @param {boolean} [isUpdate=false] - Whether this is an update to an existing block
-   * - Fires 'before-render-block' event
-   * - Creates/updates block element
-   * - Fires 'after-render-block' event
+   * Generates a new block
+   * Uses the range property to generate a random value based on incrementPower
+   * Override this method to customize block generation
+   * @param {number} row - Row position
+   * @param {number} col - Column position
+   * @returns {Object} - A new block object
    */
-  renderBlock(block, isUpdate = false) {
-    // Implementation will be added later
+  async generateBlock(row, col) {
+    const beforeEvent = await this.emit('before:generateBlock', {row, col});
+    if (beforeEvent.preventDefault === true) return null;
+
+    // Default increment power if not specified
+    const incrementPower = this.range.incrementPower || 2;
+    
+    // Generate array of possible values based on range and increment power
+    const potentialValues = [];
+    for (let value = this.range.min; value <= this.range.max; value *= incrementPower) {
+      potentialValues.push(value);
+    }
+
+    // Generate a random value from potential values
+    const randomIndex = Math.floor(Math.random() * potentialValues.length);
+    const value = potentialValues[randomIndex];
+    
+    // Create the block object
+    let block = {
+      value, 
+      row, 
+      col, 
+      id: `block-${row}-${col}-${Date.now()}`, 
+      el: null
+    };
+
+    // Allow event handlers to modify the block
+    const afterEvent = await this.emit('after:generateBlock', block);
+    return afterEvent.args || block;
   }
+
+
+/** Renders a single block
+ * - Creates a new element if it doesn't exist
+ * @param {Object} block - Block object to render
+ */
+async renderBlock(block) {
+  const beforeEvent = await this.emit('before:renderBlock', block);
+  if (beforeEvent.preventDefault === true) return;
+  
+  if (block.el) {
+    // Update existing element
+    block.el.textContent = block.value;
+    block.el.setAttribute('data-value', block.value);
+    
+    // Update position
+    block.el.style.gridRow = block.row + 1;
+    block.el.style.gridColumn = block.col + 1;
+  } else {
+    // Create new element
+    const element = document.createElement('div');
+    element.className = 'merge-game-block';
+    element.textContent = block.value;
+    element.setAttribute('data-value', block.value);
+    element.setAttribute('data-id', block.id);
+    
+    // Set position in grid
+    element.style.gridRow = block.row + 1;
+    element.style.gridColumn = block.col + 1;
+    
+    // Store element reference in block
+    block.el = element;
+    
+    // Add to the grid
+    this.gridEl.appendChild(element);
+  }
+  
+  const afterEvent = await this.emit('after:renderBlock', block);
+  return afterEvent.args || block;
+}
 
   /**
    * Handles drag events (mousedown, touchstart, mousemove, touchmove)
