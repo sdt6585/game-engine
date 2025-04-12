@@ -1,3 +1,5 @@
+import makeObservable from './EventEmitter';
+
 /**
  * GameEngine - Core class for the merge game grid system
  * Handles grid rendering, state management, and merge mechanics
@@ -28,8 +30,9 @@ class GameEngine {
    * @type {Object}
    * @property {number} min - Minimum value
    * @property {number} max - Maximum value
+   * @property {number} incrementPower - Power to increment by
    */
-  range = { min: 1, max: 16 };
+  range = { min: 1, max: 32, incrementPower: 2 };
 
   /** 
    * Maximum number of states to keep in history
@@ -82,7 +85,7 @@ class GameEngine {
    * - col: Column position
    * - Additional properties can be added by derivative games
    */
-  state = [];
+  state = []; 
 
   /** 
    * History of previous states for undo functionality
@@ -90,12 +93,6 @@ class GameEngine {
    */
   stateHistory = [];
 
-  /** 
-   * Event handlers registered with this engine
-   * @type {Object}
-   * @private
-   */
-  _eventHandlers = {};
 
   /**
    * Creates a new GameEngine instance
@@ -113,6 +110,7 @@ class GameEngine {
    * @param {Array} options.mergeRules - Custom rules for validating merges
    */
   constructor(options = {}) {
+    /** Apply any options to class properties **/
     this.targetEl = options.targetEl || null;
 
     // Allow passing in the full gridSize object or individual properties
@@ -130,6 +128,9 @@ class GameEngine {
     this.selectionRules = options.selectionRules || [];
     this.mergeRules = options.mergeRules || [];
     this.hitBoxScale = options.hitBoxScale || this.hitBoxScale;
+
+    //Make self observable, adds handlers property and on, off, once, emit methods to the instance
+    makeObservable(this);
   }
 
   /**
@@ -174,15 +175,29 @@ class GameEngine {
   }
 
   /**
-   * Resets the game state
-   * - Clears the grid and recreates blocks
-   * - Clears selection and history
-   * - Re-renders the grid
-   * - Fires 'reset' event
-   */
-  reset() {
-    // Implementation will be added later
-  }
+ * Resets the game state
+ * - Clears the grid and recreates blocks
+ * - Clears selection and history
+ * - Re-renders the grid
+ * - Fires 'reset' event
+ */
+reset() {
+  if (emit('before: reset').preventDefault === true) {return};
+  
+  // Clear selection
+  // - not clearing history here, allows for undo/redo functionality to reset
+  this.selectedBlocks = [];
+  this.currentBlock = null;
+
+  // Initialize state with new block objects
+  this.state = this.generateState();
+  
+  // Render the grid (attaches elements to block objects)
+  this.renderGrid();
+  
+  // Fire after event
+  this.emit('after:reset');
+}
 
   /**
    * Renders the entire grid
@@ -234,6 +249,59 @@ class GameEngine {
     // Return the grid element
     return this.gridEl;
   }
+
+/** Generate State
+ * 
+ * @returns {Array<Array<Object>>} - The state of the game
+ * @private
+ */
+generateState() {
+  if (emit('before: generateState').preventDefault === true) {return}
+
+  let returnValue = Array.from({ length: this.gridSize.rows }, () => 
+    Array.from({ length: this.gridSize.cols }, () => this.generateBlock(row, col)));
+
+  returnValue = (emit('after: generateState', returnValue)).args;
+
+  return returnValue;
+}
+
+/** Genreates a new block
+ * Uses the range property to generate a random value incremented by powers of 2
+ * Override this method to customize block generation
+ * @param {number} row - Row position
+ * @param {number} col - Column position
+ * @returns {Object} - A new block object
+ * @private
+ */
+generateBlock(row, col) {
+  if (emit('before: generateBlock', row, col).preventDefault === true) {return}
+
+  // Generate random value within range using the incrementPower
+  let potentialValues = [];
+  for (let i = this.range.min; i <= this.range.max; i *= this.range.incrementPower) {
+    potentialValues.push(i);
+  }
+
+  // Generate an array index from the potential values
+  const valueIndex = Math.floor(Math.random() * potentialValues.length);
+
+  // Get the value from the potential values array
+  const value = potentialValues[valueIndex];
+  
+  let returnValue = {
+    value, 
+    row, 
+    col, 
+    id: `block-${row}-${col}-${Date.now()}`, 
+    el: null
+  };
+
+  returnValue = (emit('after: generateBlock', returnValue)).args;
+
+  return returnValue;
+}
+
 
   /**
    * Renders a single block
@@ -297,106 +365,6 @@ class GameEngine {
     // Implementation will be added later
   }
 
-  /**
-   * Registers an event handler
-   * @param {string} eventName - Name of the event
-   * @param {Function} handler - Function to call when event is triggered
-   */
-  on(eventName, handler) {
-    if (!this._eventHandlers[eventName]) {
-      this._eventHandlers[eventName] = [];
-    }
-    this._eventHandlers[eventName].push(handler);
-  }
-
-  /**
-   * Removes an event handler
-   * @param {string} eventName - Name of the event
-   * @param {Function} [handler] - Function to remove. If not provided, removes all handlers for this event.
-   */
-  off(eventName, handler) {
-    if (!this._eventHandlers[eventName]) return;
-    
-    if (!handler) {
-      // Remove all handlers for this event
-      delete this._eventHandlers[eventName];
-    } else {
-      // Remove specific handler
-      this._eventHandlers[eventName] = this._eventHandlers[eventName].filter(h => h !== handler);
-    }
-  }
-
-  /**
-   * Triggers an event
-   * @param {string} eventName - Name of the event
-   * @param {...any} args - Arguments to pass to event handlers
-   * @returns {boolean} - Whether the event was canceled (prevented default)
-   */
-  emit(eventName, ...args) {
-    if (!this._eventHandlers[eventName]) return true;
-    
-    let prevented = false;
-    for (const handler of this._eventHandlers[eventName]) {
-      const event = { 
-        type: eventName, 
-        args, 
-        preventDefault: () => { prevented = true; }
-      };
-      handler(event);
-    }
-    
-    return !prevented;
-  }
-
-  /**
-   * Generates a new block with a random value
-   * @returns {Object} - A new block object
-   * @private
-   */
-  _generateBlock() {
-    // Implementation will be added later
-  }
-
-  /**
-   * Gets the DOM element for a block
-   * @param {string|Object} blockOrId - Block object or block ID
-   * @returns {HTMLElement|null} - The DOM element or null if not found
-   * @private
-   */
-  _getBlockElement(blockOrId) {
-    // Implementation will be added later
-  }
-
-  /**
-   * Adds a state to the history
-   * @param {Array<Array<Object>>} state - The state to add
-   * @private
-   */
-  _addToHistory(state) {
-    // Implementation will be added later
-  }
-
-  /**
-   * Check if two blocks are adjacent
-   * @param {Object} block1 - First block
-   * @param {Object} block2 - Second block
-   * @returns {boolean} - Whether the blocks are adjacent
-   * @private
-   */
-  _areBlocksAdjacent(block1, block2) {
-    // Implementation will be added later
-  }
-
-  /**
-   * Get the position in the grid from event coordinates
-   * @param {number} x - X coordinate
-   * @param {number} y - Y coordinate
-   * @returns {Object|null} - {row, col} position or null if outside grid
-   * @private
-   */
-  _getPositionFromCoordinates(x, y) {
-    // Implementation will be added later
-  }
 }
 
 export default GameEngine; 
