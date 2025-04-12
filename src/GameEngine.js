@@ -34,11 +34,6 @@ class GameEngine {
    */
   range = { min: 1, max: 32, incrementPower: 2 };
 
-  /** 
-   * Maximum number of states to keep in history
-   * @type {number}
-   */
-  stateHistoryVersions = 10;
 
   /** 
    * Scale factor for hitbox size (relative to block size)
@@ -93,11 +88,12 @@ class GameEngine {
    */
   stateHistory = [];
 
-  /**
-   * Number of previous states to keep in history
+  
+  /** 
+   * Maximum number of states to keep in history
    * @type {number}
    */
-  stateHistoryLimit = 10;
+  stateHistoryVersions = 10;
 
 
   /**
