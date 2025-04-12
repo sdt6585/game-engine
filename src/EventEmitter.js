@@ -96,58 +96,68 @@ function makeObservable (target = {}) {
    */
   target.emit = async function(eventName, ...args) {
 	  try {
-		  if (!this._eventHandlers[eventName]) return true;
+		  // For no handlers
+      if (!handlers[eventName]) {
+        return { 
+          name: eventName,
+          preventDefault: false, 
+          args: args.length === 1 ? args[0] : args.length > 1 ? args : undefined
+        };
+      }
 
-		let stopPropegation = false;
-		let preventDefault = false;
-		
-    const event = {
-      name: eventName,
-      args: args.length === 1 ? args[0] : args.length > 1 ? args : undefined,
-      preventDefault: () => { 
-        preventDefault = true;
-        event.stopPropagation();
-      },
-      stopPropagation: () => { stopPropegation = true; }
-    };
-    
-		// Create a copy of the handlers array to avoid issues if handlers are removed during execution
-		const callbacks = [...handlers[eventName]];
-		
-		for (const handler of callbacks) {
-			try {
-				if (stopPropegation) break;
-				
-				await handler.fn(event);
-				
-				// Remove once handlers after execution
-				if (handler.once) {
-					const index = handlers[eventName].indexOf(handler);
-					if (index !== -1) {
-						handlers[eventName].splice(index, 1);
-					}
-				}
-				}
-			} catch (e) {
-				console.error(`Error in event handler for ${eventName}:`, e);
-				throw e
-			}
-		}
-		
-		// Clean up empty handler arrays
-		if (handlers[eventName] && handlers[eventName].length === 0) {
-			delete handlers[eventName];
+      let stopPropagation = false;
+      let preventDefault = false;
+      
+      const event = {
+        name: eventName,
+        args: args.length === 1 ? args[0] : args.length > 1 ? args : undefined,
+        preventDefault: () => { 
+          preventDefault = true;
+          event.stopPropagation();
+        },
+        stopPropagation: () => { stopPropagation = true; }
+      };
+      
+      // Create a copy of the handlers array to avoid issues if handlers are removed during execution
+      const callbacks = [...handlers[eventName]];
+      
+      for (const handler of callbacks) {
+        try {
+          if (stopPropagation) break;
+          
+          await handler.fn(event);
+          
+          // Remove once handlers after execution
+          if (handler.once) {
+            const index = handlers[eventName].indexOf(handler);
+            if (index !== -1) {
+              handlers[eventName].splice(index, 1);
+            }
+          }
+        } catch (e) {
+          console.error(`Error in event handler ${handlers[eventName]} for ${eventName}:`, e);
+          throw e
+        }
+      }
+      
+      // Clean up empty handler arrays
+      if (handlers[eventName] && handlers[eventName].length === 0) {
+        delete handlers[eventName];
+      }
 			
+      //Update event for propegation/preventDefault
+      delete event.stopPropagation;
+      event.preventDefault = preventDefault;
+      
+      return event;
+
 		} catch (error) {
 			console.error(`Error in event emission for ${eventName}:`, error);
-			event.error = error;
+			throw error
 		}
-
-		//Update event for propegation/preventDefault
-		delete event.stopPropegation
-		event.preventDefault = preventDefault;
-		
-		return event;
   };
   
   return target;
+}
+
+export default makeObservable;
