@@ -93,6 +93,12 @@ class GameEngine {
    */
   stateHistory = [];
 
+  /**
+   * Number of previous states to keep in history
+   * @type {number}
+   */
+  stateHistoryLimit = 10;
+
 
   /**
    * Creates a new GameEngine instance
@@ -141,37 +147,50 @@ class GameEngine {
    * - Renders the initial grid
    * - Fires initialize events
    */
-  initialize() {
-    // Fire before event
-    this.emit('before-initialize');
-    
-    // Attach event listeners
-    
-    // Bind methods to maintain correct 'this' context
-    this._boundDrag = this.drag.bind(this);
-    this._boundDragEnd = this.dragEnd.bind(this);
-    
-    // Mouse events
-    this.gridEl.addEventListener('mousedown', this._boundDrag);
-    document.addEventListener('mousemove', this._boundDrag);
-    document.addEventListener('mouseup', this._boundDragEnd);
-    
-    // Touch events
-    this.gridEl.addEventListener('touchstart', this._boundDrag, { passive: false });
-    document.addEventListener('touchmove', this._boundDrag, { passive: false });
-    document.addEventListener('touchend', this._boundDragEnd);
-    document.addEventListener('touchcancel', this._boundDragEnd);
+  async initialize() {
+    const beforeEvent = await this.emit('before:initialize');
+    if (beforeEvent.preventDefault) return;
     
     // Initialize state if empty
     if (!this.state.length) {
-      this.reset();
+      await this.reset();
     } else {
       // Otherwise render existing state
-      this.renderGrid();
+      await this.renderGrid();
+    }
+
+    /** Setup event listeners **/
+    // Bind methods to maintain correct 'this' context
+    let boundDrag = this.drag.bind(this);
+    let boundDragEnd = this.dragEnd.bind(this);
+    
+    // Create grid element if it doesn't exist
+    if (!this.gridEl && this.targetEl) {
+      this.gridEl = document.createElement('div');
+      this.gridEl.className = 'merge-game-grid';
+      
+      // Set grid template based on configuration
+      this.gridEl.style.gridTemplateRows = `repeat(${this.gridSize.rows}, 1fr)`;
+      this.gridEl.style.gridTemplateColumns = `repeat(${this.gridSize.cols}, 1fr)`;
+      
+      // Append to target
+      this.targetEl.appendChild(this.gridEl);
     }
     
-    // Fire after event
-    this.emit('after-initialize');
+    if (this.gridEl) {
+      // Mouse events
+      this.gridEl.addEventListener('mousedown', this.boundDrag);
+      document.addEventListener('mousemove', this.boundDrag);
+      document.addEventListener('mouseup', this.boundDragEnd);
+      
+      // Touch events
+      this.gridEl.addEventListener('touchstart', this.boundDrag, { passive: false });
+      document.addEventListener('touchmove', this.boundDrag, { passive: false });
+      document.addEventListener('touchend', this.boundDragEnd);
+      document.addEventListener('touchcancel', this.boundDragEnd);
+    }
+    
+    await this.emit('after:initialize');
   }
 
   /**
@@ -181,22 +200,21 @@ class GameEngine {
    * - Re-renders the grid
    * - Fires 'reset' event
    */
-  reset() {
-    if (emit('before: reset').preventDefault === true) {return};
+  async reset() {
+    const beforeEvent = await this.emit('before:reset');
+    if (beforeEvent.preventDefault) return;
     
     // Clear selection
-    // - not clearing history here, allows for undo/redo functionality to reset
     this.selectedBlocks = [];
     this.currentBlock = null;
-
+  
     // Initialize state with new block objects
-    this.state = this.generateState();
+    this.state = await this.generateState();
     
     // Render the grid (attaches elements to block objects)
-    this.renderGrid();
+    await this.renderGrid();
     
-
-    this.emit('after:reset');
+    await this.emit('after:reset');
   }
 
   /**
@@ -367,24 +385,30 @@ async renderBlock(block) {
 
   /**
    * Highlights a block to indicate selection
+   * 
    * @param {HTMLElement} element - The block element to highlight
-   * - Fires 'before-highlight' event
-   * - Applies visual highlighting
-   * - Fires 'after-highlight' event
    */
-  highlight(element) {
-    // Implementation will be added later
+  async highlight(element) {
+    const beforeEvent = await this.emit('before:highlight', element);
+    if (beforeEvent.preventDefault) return;
+    
+    element.classList.add('highlighted');
+    
+    await this.emit('after:highlight', element);
   }
 
   /**
    * Removes highlighting from a block
+   * 
    * @param {HTMLElement} element - The block element to remove highlight from
-   * - Fires 'before-remove-highlight' event
-   * - Removes visual highlighting
-   * - Fires 'after-remove-highlight' event
    */
-  removeHighlight(element) {
-    // Implementation will be added later
+  async removeHighlight(element) {
+    const beforeEvent = await this.emit('before:removeHighlight', element);
+    if (beforeEvent.preventDefault) return;
+    
+    element.classList.remove('highlighted');
+    
+    await this.emit('after:removeHighlight', element);
   }
 
   /**
@@ -400,6 +424,31 @@ async renderBlock(block) {
    */
   dragEnd(event) {
     // Implementation will be added later
+  }
+
+  /**
+ * Adds a state to the history
+ * 
+ * @param {Array<Array<Object>>} state - The state to add
+ * @private
+ */
+  addToHistory(state) {
+    // Create a deep copy of the state
+    const stateCopy = JSON.parse(JSON.stringify(
+      state.map(row => row.map(block => {
+        // Exclude DOM element from serialization
+        const { el, ...rest } = block;
+        return rest;
+      }))
+    ));
+    
+    // Add to history
+    this.stateHistory.push(stateCopy);
+    
+    // Limit history size
+    if (this.stateHistory.length > this.stateHistoryVersions) {
+      this.stateHistory.shift();
+    }
   }
 
 }
