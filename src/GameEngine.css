@@ -1,0 +1,78 @@
+/* GameEngine Base Styles */
+
+/* Grid container */
+.merge-game-grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  gap: 8px;
+  padding: 8px;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Block base styles */
+.merge-game-block {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+  font-size: 1.5em;
+  font-weight: bold;
+  color: white;
+  background-color: #4a86e8;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+  cursor: pointer;
+}
+
+/* Highlighted state */
+.merge-game-block.highlighted {
+  transform: scale(0.95);
+  box-shadow: 0 0 0 3px white, 0 0 8px rgba(255, 255, 255, 0.8);
+  z-index: 10;
+}
+
+/* Animations */
+@keyframes merge-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes fall-in {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes disappear {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(0); opacity: 0; }
+}
+
+/* Animation classes */
+.merge-game-block.merging {
+  animation: merge-pulse 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.merge-game-block.falling {
+  animation: fall-in 0.3s ease-out forwards;
+}
+
+.merge-game-block.disappearing {
+  animation: disappear 0.3s ease-in forwards;
+}
+
+/* Connection lines canvas */
+.merge-game-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+}

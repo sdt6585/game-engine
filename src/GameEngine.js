@@ -70,6 +70,12 @@ class GameEngine {
    */
   selectedBlocks = [];
 
+  /**
+   * Whether the user is currently dragging
+   * @type {boolean}
+   */
+  isDragging = false;
+
   /** 
    * Current game state - contains the grid of blocks
    * @type {Array<Array<Object>>}
@@ -144,7 +150,7 @@ class GameEngine {
    * - Fires initialize events
    */
   async initialize() {
-    const beforeEvent = await this.emit('before:initialize');
+    const beforeEvent = await this.emit('before: initialize');
     if (beforeEvent.preventDefault) return;
     
     // Initialize state if empty
@@ -175,18 +181,18 @@ class GameEngine {
     
     if (this.gridEl) {
       // Mouse events
-      this.gridEl.addEventListener('mousedown', this.boundDrag);
-      document.addEventListener('mousemove', this.boundDrag);
-      document.addEventListener('mouseup', this.boundDragEnd);
+      this.gridEl.addEventListener('mousedown', boundDrag);
+      document.addEventListener('mousemove', boundDrag);
+      document.addEventListener('mouseup', boundDragEnd);
       
       // Touch events
-      this.gridEl.addEventListener('touchstart', this.boundDrag, { passive: false });
-      document.addEventListener('touchmove', this.boundDrag, { passive: false });
-      document.addEventListener('touchend', this.boundDragEnd);
-      document.addEventListener('touchcancel', this.boundDragEnd);
+      this.gridEl.addEventListener('touchstart', boundDrag, { passive: false });
+      document.addEventListener('touchmove', boundDrag, { passive: false });
+      document.addEventListener('touchend', boundDragEnd);
+      document.addEventListener('touchcancel', boundDragEnd);
     }
     
-    await this.emit('after:initialize');
+    await this.emit('after: initialize');
   }
 
   /**
@@ -197,7 +203,7 @@ class GameEngine {
    * - Fires 'reset' event
    */
   async reset() {
-    const beforeEvent = await this.emit('before:reset');
+    const beforeEvent = await this.emit('before: reset');
     if (beforeEvent.preventDefault) return;
     
     // Clear selection
@@ -210,7 +216,7 @@ class GameEngine {
     // Render the grid (attaches elements to block objects)
     await this.renderGrid();
     
-    await this.emit('after:reset');
+    await this.emit('after: reset');
   }
 
   /**
@@ -270,7 +276,7 @@ class GameEngine {
    */
   async generateState() {
     // Allow event handlers to prevent generation
-    const beforeEvent = await this.emit('before:generateState');
+    const beforeEvent = await this.emit('before: generateState');
     if (beforeEvent.preventDefault === true) return;
 
     // Generate a new state with new block objects
@@ -281,7 +287,7 @@ class GameEngine {
     );
 
     // Allow event handlers to modify the new state
-    const afterEvent = await this.emit('after:generateState', newState);
+    const afterEvent = await this.emit('after: generateState', newState);
     newState = afterEvent.args || newState;
 
     return newState;
@@ -296,7 +302,7 @@ class GameEngine {
    * @returns {Object} - A new block object
    */
   async generateBlock(row, col) {
-    const beforeEvent = await this.emit('before:generateBlock', {row, col});
+    const beforeEvent = await this.emit('before: generateBlock', {row, col});
     if (beforeEvent.preventDefault === true) return null;
 
     // Default increment power if not specified
@@ -322,61 +328,48 @@ class GameEngine {
     };
 
     // Allow event handlers to modify the block
-    const afterEvent = await this.emit('after:generateBlock', block);
+    const afterEvent = await this.emit('after: generateBlock', block);
     return afterEvent.args || block;
   }
 
 
-/** Renders a single block
- * - Creates a new element if it doesn't exist
- * @param {Object} block - Block object to render
- */
-async renderBlock(block) {
-  const beforeEvent = await this.emit('before:renderBlock', block);
-  if (beforeEvent.preventDefault === true) return;
-  
-  if (block.el) {
-    // Update existing element
-    block.el.textContent = block.value;
-    block.el.setAttribute('data-value', block.value);
-    
-    // Update position
-    block.el.style.gridRow = block.row + 1;
-    block.el.style.gridColumn = block.col + 1;
-  } else {
-    // Create new element
-    const element = document.createElement('div');
-    element.className = 'merge-game-block';
-    element.textContent = block.value;
-    element.setAttribute('data-value', block.value);
-    element.setAttribute('data-id', block.id);
-    
-    // Set position in grid
-    element.style.gridRow = block.row + 1;
-    element.style.gridColumn = block.col + 1;
-    
-    // Store element reference in block
-    block.el = element;
-    
-    // Add to the grid
-    this.gridEl.appendChild(element);
-  }
-  
-  const afterEvent = await this.emit('after:renderBlock', block);
-  return afterEvent.args || block;
-}
-
-  /**
-   * Handles drag events (mousedown, touchstart, mousemove, touchmove)
-   * @param {Event} event - The DOM event
-   * - Determines if user is hovering over a block
-   * - Validates selection against rules
-   * - Updates selectedBlocks array
-   * - Highlights selected blocks
-   * - Fires 'drag' event
+  /** Renders a single block
+   * - Creates a new element if it doesn't exist
+   * @param {Object} block - Block object to render
    */
-  drag(event) {
-    // Implementation will be added later
+  async renderBlock(block) {
+    const beforeEvent = await this.emit('before: renderBlock', block);
+    if (beforeEvent.preventDefault === true) return;
+    
+    if (block.el) {
+      // Update existing element
+      block.el.textContent = block.value;
+      block.el.setAttribute('data-value', block.value);
+      
+      // Update position
+      block.el.style.gridRow = block.row + 1;
+      block.el.style.gridColumn = block.col + 1;
+    } else {
+      // Create new element
+      const element = document.createElement('div');
+      element.className = 'merge-game-block';
+      element.textContent = block.value;
+      element.setAttribute('data-value', block.value);
+      element.setAttribute('data-id', block.id);
+      
+      // Set position in grid
+      element.style.gridRow = block.row + 1;
+      element.style.gridColumn = block.col + 1;
+      
+      // Store element reference in block
+      block.el = element;
+      
+      // Add to the grid
+      this.gridEl.appendChild(element);
+    }
+    
+    const afterEvent = await this.emit('after: renderBlock', block);
+    return afterEvent.args || block;
   }
 
   /**
@@ -385,12 +378,12 @@ async renderBlock(block) {
    * @param {HTMLElement} element - The block element to highlight
    */
   async highlight(element) {
-    const beforeEvent = await this.emit('before:highlight', element);
+    const beforeEvent = await this.emit('before: highlight', element);
     if (beforeEvent.preventDefault) return;
     
     element.classList.add('highlighted');
     
-    await this.emit('after:highlight', element);
+    await this.emit('after: highlight', element);
   }
 
   /**
@@ -399,27 +392,375 @@ async renderBlock(block) {
    * @param {HTMLElement} element - The block element to remove highlight from
    */
   async removeHighlight(element) {
-    const beforeEvent = await this.emit('before:removeHighlight', element);
+    const beforeEvent = await this.emit('before: removeHighlight', element);
     if (beforeEvent.preventDefault) return;
     
     element.classList.remove('highlighted');
     
-    await this.emit('after:removeHighlight', element);
+    await this.emit('after: removeHighlight', element);
+  }
+
+  /**
+ * Handles drag events (mousedown, touchstart, mousemove, touchmove)
+ * 
+ * Processes user interaction to select blocks during drag operations.
+ * Detects blocks under the pointer, validates against selection rules,
+ * and updates the selection state.
+ * 
+ * @param {Event} event - The DOM event (mouse or touch)
+ */
+  async drag(event) {
+    const beforeEvent = await this.emit('before: drag', event);
+    if (beforeEvent.preventDefault) return;
+    
+    // Determine if this is the start of a drag or continuation
+    const isStart = event.type === 'mousedown' || event.type === 'touchstart';
+    
+    // For touchstart/mousedown, initialize drag state
+    if (isStart) {
+      event.preventDefault(); // Prevent default to avoid scrolling on touch devices
+      this.isDragging = true;
+      this.selectedBlocks = [];
+    } else if (!this.isDragging) {
+      // If not dragging and not a start event, ignore
+      return;
+    }
+    
+    // Get pointer coordinates
+    const coords = this.getEventCoordinates(event);
+    if (!coords) return;
+    
+    // Find the block at the current position
+    const block = this.getBlockAtPosition(coords.x, coords.y);
+    if (!block) return;
+    
+    // If we're still on the same block, do nothing (optimization)
+    if (this.currentBlock === block) return;
+    
+    // Run through all selection rules
+    let isValidSelection = true;
+    for (const rule of this.selectionRules) {
+      if (!rule(block, this.selectedBlocks, this.state)) {
+        isValidSelection = false;
+        break;
+      }
+    }
+    
+    // If valid selection, add to selected blocks
+    if (isValidSelection) {
+      // Store as current block
+      this.currentBlock = block;
+      
+      // Add to selection
+      this.selectedBlocks.push(block);
+      
+      // Highlight the block
+      if (block.el) {
+        await this.highlight(block.el);
+      }
+      
+      // Emit selection event
+      await this.emit('after: select', { block, selectedBlocks: this.selectedBlocks });
+    }
+    
+    await this.emit('after: drag', { event, block: this.currentBlock, isValidSelection });
+  }
+
+  /**
+   * Gets the x,y coordinates from a mouse or touch event
+   * 
+   * @param {Event} event - The DOM event
+   * @returns {Object|null} - {x, y} coordinates or null
+   * @private
+   */
+  getEventCoordinates(event) {
+    // Handle both mouse and touch events
+    if (event.clientX !== undefined) {
+      return { x: event.clientX, y: event.clientY };
+    } else if (event.touches && event.touches.length > 0) {
+      return { x: event.touches[0].clientX, y: event.touches[0].clientY };
+    } else if (event.changedTouches && event.changedTouches.length > 0) {
+      return { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY };
+    }
+    return null;
+  }
+
+  /**
+   * Gets the block at the given coordinates
+   * @param {number} x - The x coordinate
+   * @param {number} y - The y coordinate
+   * @returns {Object|null} - The block object or null
+   */
+  getBlockAtPosition(x, y) {
+    // Create smaller hitbox as a percentage of block size
+    const scale = this.hitBoxScale;
+    
+    // Iterate through all rows and columns in the state
+    for (let row = 0; row < this.state.length; row++) {
+      if (!this.state[row]) continue;
+      
+      for (let col = 0; col < this.state[row].length; col++) {
+        const block = this.state[row][col];
+        
+        // Skip empty cells
+        if (!block || !block.el) continue;
+        
+        // Get element boundaries
+        const rect = block.el.getBoundingClientRect();
+
+        const hitboxWidth = rect.width * scale;
+        const hitboxHeight = rect.height * scale;
+
+        // Calculate hitbox top/bottom/left/right
+        const hitBox = {
+          top: rect.top - hitboxHeight / 2,
+          bottom: rect.bottom + hitboxHeight / 2,
+          left: rect.left - hitboxWidth / 2,
+          right: rect.right + hitboxWidth / 2
+        }
+
+        // Check if point is within hitbox
+        if (
+          x >= hitBox.left && 
+          x <= hitBox.right && 
+          y >= hitBox.top && 
+          y <= hitBox.bottom
+        ) {
+          return block;
+        }
+      }
+    }
+    
+    return null;
   }
 
   /**
    * Handles drag end events (mouseup, touchend)
+   * 
+   * Validates the final selection against merge rules, and if valid,
+   * performs the merge operation. Cleans up selection state.
+   * 
    * @param {Event} event - The DOM event
-   * - Validates merge against rules
-   * - Fires 'before-drag-end' event
-   * - If valid merge, fires 'before-merge' event
-   * - Performs merge operation
-   * - If merge performed, fires 'after-merge' event
-   * - Clears selection
-   * - Fires 'after-drag-end' event
    */
-  dragEnd(event) {
-    // Implementation will be added later
+  async dragEnd(event) {
+    const beforeEvent = await this.emit('before: dragEnd', event);
+    if (beforeEvent.preventDefault) return;
+    
+    // End drag state
+    this.isDragging = false;
+    this.currentBlock = null;
+    
+    // If no blocks selected, nothing to do
+    if (this.selectedBlocks.length === 0) {
+      await this.emit('after: dragEnd', { event, merged: false });
+      return;
+    }
+    
+    // Check if merge is valid by running all merge rules
+    let isValidMerge = true;
+    for (const rule of this.mergeRules) {
+      if (!rule(this.selectedBlocks, this.state)) {
+        isValidMerge = false;
+        break;
+      }
+    }
+    
+    // If the merge is valid, emit the merge event
+    if (isValidMerge && this.selectedBlocks.length >= 2) {
+      
+      // Perform merge (actual implementation will be handled by event handlers)
+      await this.processMerge();
+
+    }
+    
+    // Clear selection regardless of merge result
+    const oldSelection = [...this.selectedBlocks];
+    this.selectedBlocks = [];
+    
+    // Remove highlights from previously selected blocks
+    for (const block of oldSelection) {
+      if (block && block.el) {
+        await this.removeHighlight(block.el);
+      }
+    }
+    
+    // Emit the final event
+    await this.emit('after: dragEnd', { 
+      event,
+      merged: isValidMerge && oldSelection.length >= 2
+    });
+  }
+
+  /**
+   * Calculates the merge value for a set of blocks
+   * @param {Array} blocks - Array of blocks
+   * @returns {number} - The merge value
+   */
+  async calculateMergeValue(blocks) {
+    const beforeEvent = await this.emit('before: calculateMergeValue', blocks);
+    if (beforeEvent.preventDefault) return null;
+
+    const mergeValue = blocks.reduce((acc, block) => acc + block.value, 0);
+
+    const afterEvent = await this.emit('after: calculateMergeValue', { blocks, mergeValue });
+    return afterEvent.args || mergeValue;
+  }
+
+  /**
+ * Process a merge operation on selected blocks
+ * 
+ * This provides a default implementation for merging blocks:
+ * 1. The last selected block becomes the target (destination)
+ * 2. Other selected blocks are removed
+ * 3. The target block gets updated with the merged value
+ * 4. Empty spaces are filled with new blocks
+ * 
+ * @param {Object} options - Merge options
+ * @param {Array} options.blocks - All selected blocks
+ * @param {Object} options.targetBlock - Destination block for the merge
+ * @param {number} options.mergeValue - The value for the merged block
+ * @returns {Promise<boolean>} - Success status
+ */
+  async processMerge() {
+    const beforeEvent = await this.emit('before: processMerge');
+    if (beforeEvent.preventDefault) return false;
+
+    //Add current state to history
+    this.addToHistory(this.state);
+
+    //Get relevant values
+    let blocks = this.selectedBlocks;
+    let targetBlock = this.currentBlock;
+    let mergeValue = await this.calculateMergeValue(blocks);
+    
+    if (!blocks || blocks.length < 2 || !targetBlock) {
+      return false;
+    }
+    
+    // Get blocks to remove (all except target)
+    const blocksToRemove = blocks.filter(block => block !== targetBlock);
+    
+    // Save positions for later filling
+    const emptyPositions = blocksToRemove.map(block => ({
+      row: block.row,
+      col: block.col
+    }));
+    
+    // Add animation class to removed blocks
+    for (const block of blocksToRemove) {
+      if (block.el) {
+        block.el.classList.add('merge-game-block-disappearing');
+        
+        // Wait for animation to complete before removing
+        await new Promise(resolve => {
+          const onAnimEnd = () => {
+            block.el.removeEventListener('animationend', onAnimEnd);
+            resolve();
+          };
+          block.el.addEventListener('animationend', onAnimEnd);
+        });
+        
+        // Remove element from DOM
+        if (block.el.parentNode) {
+          block.el.parentNode.removeChild(block.el);
+        }
+      }
+      
+      // Remove block from state
+      if (this.state[block.row] && this.state[block.row][block.col] === block) {
+        this.state[block.row][block.col] = null;
+      }
+    }
+    
+    // Update target block with new value
+    if (targetBlock.el) {
+      // Apply merge animation
+      targetBlock.el.classList.add('merge-game-block-merging');
+      
+      // Wait for animation - have to use a promise to wait for the animation to end, can't await the event listener
+      await new Promise(resolve => {
+        const onAnimEnd = () => {
+          targetBlock.el.removeEventListener('animationend', onAnimEnd);
+          targetBlock.el.classList.remove('merge-game-block-merging');
+          resolve();
+        };
+        targetBlock.el.addEventListener('animationend', onAnimEnd);
+      });
+    }
+    
+    // Update the value in the model
+    targetBlock.value = mergeValue;
+
+    // Re-render the block using the standard rendering method
+    await this.renderBlock(targetBlock);
+    
+    // Fill empty positions with new blocks
+    const newBlocks = await this.fillEmptyPositions(emptyPositions);
+    
+    await this.emit('after: processMerge', {
+      blocks,
+      targetBlock,
+      mergeValue,
+      newBlocks
+    });
+    
+    return true;
+  }
+
+  /**
+   * Fill empty positions with new blocks
+   * 
+   * @param {Array} positions - Array of {row, col} positions to fill
+   * @returns {Promise<Array>} - Array of new blocks
+   */
+  async fillEmptyPositions(positions) {
+    const beforeEvent = await this.emit('before:fillEmptyPositions', positions);
+    if (beforeEvent.preventDefault) return [];
+    
+    const newBlocks = [];
+    
+    // Fill each position with a new block
+    for (const pos of positions) {
+      const block = await this.generateBlock(pos.row, pos.col);
+      
+      // Create element for the block
+      if (this.gridEl) {
+        const el = document.createElement('div');
+        el.className = 'merge-game-block merge-game-block-falling';
+        el.textContent = block.value.toString();
+        
+        // Position the element
+        el.style.gridRow = pos.row + 1;
+        el.style.gridColumn = pos.col + 1;
+        
+        // Add to DOM
+        this.gridEl.appendChild(el);
+        
+        // Set element reference in block
+        block.el = el;
+        
+        // Wait for animation
+        await new Promise(resolve => {
+          const onAnimEnd = () => {
+            el.removeEventListener('animationend', onAnimEnd);
+            el.classList.remove('merge-game-block-falling');
+            resolve();
+          };
+          el.addEventListener('animationend', onAnimEnd);
+        });
+      }
+      
+      // Update state
+      if (!this.state[pos.row]) {
+        this.state[pos.row] = [];
+      }
+      this.state[pos.row][pos.col] = block;
+      
+      newBlocks.push(block);
+    }
+    
+    const afterEvent = await this.emit('after:fillEmptyPositions', newBlocks);
+    return afterEvent.args || newBlocks;
   }
 
   /**
