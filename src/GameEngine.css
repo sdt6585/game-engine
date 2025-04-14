@@ -1,5 +1,19 @@
 /* GameEngine Base Styles */
 
+/* Different value colors - base set that can be extended */
+.merge-game-block[data-value="1"] { background-color: #5b9bd5; }
+.merge-game-block[data-value="2"] { background-color: #ed7d31; }
+.merge-game-block[data-value="4"] { background-color: #a5a5a5; }
+.merge-game-block[data-value="8"] { background-color: #ffc000; }
+.merge-game-block[data-value="16"] { background-color: #70ad47; }
+.merge-game-block[data-value="32"] { background-color: #7030a0; }
+.merge-game-block[data-value="64"] { background-color: #c00000; }
+.merge-game-block[data-value="128"] { background-color: #00b0f0; }
+.merge-game-block[data-value="256"] { background-color: #ff33cc; }
+.merge-game-block[data-value="512"] { background-color: #ff9900; }
+.merge-game-block[data-value="1024"] { background-color: #00cc66; }
+.merge-game-block[data-value="2048"] { background-color: #9900ff; } 
+
 /* Grid container */
 .merge-game-grid {
   display: grid;
